@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.realm.exceptions.RealmFileException;
 import io.realm.internal.Capabilities;
@@ -90,6 +89,8 @@ final class RealmCache {
         private Class<T> realmClass;
         private CountDownLatch fgRealmCreatedLatch = new CountDownLatch(1);
         private RealmNotifier notifier;
+        // The Future this runnable belongs to.
+        private Future future;
 
         CreateRealmRunnable(RealmNotifier notifier, RealmConfiguration configuration,
                             RealmInstanceCallback<T> callback, Class<T> realmClass) {
@@ -99,10 +100,13 @@ final class RealmCache {
             this.notifier = notifier;
         }
 
+        public void setFuture(Future future) {
+            this.future = future;
+        }
+
         @Override
         public void run() {
             T instance = null;
-            final AtomicBoolean taskCanceled = new AtomicBoolean(false);
             try {
                 instance = createRealmOrGetFromCache(configuration, realmClass);
                 boolean results = notifier.post(new Runnable() {
@@ -112,7 +116,9 @@ final class RealmCache {
                         // instance on the caller thread.
                         // Thread.isInterrupted() cannot be used for checking here since CountDownLatch.await() will
                         // will clear interrupted status.
-                        if (taskCanceled.get()) {
+                        // Using the future to check which this runnable belongs to is to ensure if it is canceled from
+                        // the caller thread before, the callback will never be delivered.
+                        if (future == null || future.isCancelled()) {
                             return;
                         }
                         T instanceToReturn = null;
@@ -137,7 +143,6 @@ final class RealmCache {
                     RealmLog.warn("Timeout for creating Realm instance in foreground thread in `CreateRealmRunnable` ");
                 }
             } catch (InterruptedException e) {
-                taskCanceled.set(true);
                 RealmLog.warn(e, "`CreateRealmRunnable` has been interrupted.");
             } catch (final RuntimeException e) {
                 RealmLog.error(e, "`CreateRealmRunnable` failed.");
@@ -213,6 +218,7 @@ final class RealmCache {
             CreateRealmRunnable<T> createRealmRunnable = new CreateRealmRunnable<T>(
                     new AndroidRealmNotifier(null, capabilities), configuration, callback, realmClass);
             Future<?> future = BaseRealm.asyncTaskExecutor.submitTransaction(createRealmRunnable);
+            createRealmRunnable.setFuture(future);
 
             return new RealmAsyncTaskImpl(future, BaseRealm.asyncTaskExecutor);
         }

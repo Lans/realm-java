@@ -49,6 +49,7 @@ package io.realm;
  *         public void onSuccess(Realm realm) {
  *             if (isDestroyed()) {
  *                 // If the activity is destroyed, the Realm instance should be closed immediately to avoid leaks.
+ *                 // Or you can call realmAsyncTask.cancel() in onDestroy() to stop callback delivery.
  *                 realm.close();
  *             } else {
  *                 MainActivity.this.realm = realm;
@@ -66,9 +67,9 @@ package io.realm;
  *     if (realm != null) {
  *         realm.close();
  *         realm = null;
- *     } else if (realmAsyncTask != null) {
- *         // Calling cancel() will not guarantee that the task will stop delivery.
- *         // Needs to close the Realm instance in the onSuccess() callback if it doesn't.
+ *     } else {
+ *         // Calling cancel() on the thread where getInstanceAsync was called on to stop the callback delivery.
+ *         // Otherwise you need to check if the activity is destroyed to close in the onSuccess() properly.
  *         realmAsyncTask.cancel();
  *     }
  *   }
