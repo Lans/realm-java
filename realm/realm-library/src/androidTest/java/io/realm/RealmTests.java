@@ -3869,7 +3869,7 @@ public class RealmTests {
 
     @Test(expected = IllegalStateException.class)
     public void getDefaultInstanceAsync_nullCallbackShouldThrow() {
-        thrown.expect(IllegalArgumentException.class);
+        thrown.expect(IllegalStateException.class);
         Realm.getDefaultInstanceAsync(null);
     }
 
