@@ -71,6 +71,26 @@ public class DynamicRealm extends BaseRealm {
     }
 
     /**
+     * The creation of the first Realm instance for per {@link RealmConfiguration} in the process takes time to do
+     * initialization. This method places the initialization work in a background thread and deliver the Realm instance
+     * to the caller thread asynchronously after the initialization is finished.
+     *
+     * @param configuration {@link RealmConfiguration} used to open the Realm.
+     * @param callback invoked to return the results.
+     * @throws IllegalArgumentException if a null {@link RealmConfiguration} is provided.
+     * @throws IllegalStateException if it is called from a non-Looper or {@link android.app.IntentService} thread.
+     * @return a {@link RealmAsyncTask} representing a cancellable task.
+     * @see RealmInstanceCallback for more details.
+     */
+    public static RealmAsyncTask getInstanceAsync(RealmConfiguration configuration,
+                                                  RealmInstanceCallback<DynamicRealm> callback) {
+        if (configuration == null) {
+            throw new IllegalArgumentException("A non-null RealmConfiguration must be provided");
+        }
+        return RealmCache.createRealmOrGetFromCacheAsync(configuration, callback, DynamicRealm.class);
+    }
+
+    /**
      * Instantiates and adds a new object to the Realm.
      *
      * @param className the class name of the object to create.

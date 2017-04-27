@@ -3831,6 +3831,48 @@ public class RealmTests {
         realmOnExternalStorage.close();
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void getInstanceAsync_nonLooperThreadShouldThrow() {
+        Realm.getInstanceAsync(realmConfig, new RealmInstanceCallback<Realm>() {
+            @Override
+            public void onSuccess(Realm realm) {
+            }
+        });
+    }
+
+    @Test
+    @RunTestInLooperThread
+    public void getInstanceAsync_nullConfigShouldThrow() {
+        thrown.expect(IllegalArgumentException.class);
+        Realm.getInstanceAsync(null, new RealmInstanceCallback<Realm>() {
+            @Override
+            public void onSuccess(Realm realm) {
+            }
+        });
+    }
+
+    @Test
+    @RunTestInLooperThread
+    public void getInstanceAsync_nullCallbackShouldThrow() {
+        thrown.expect(IllegalArgumentException.class);
+        Realm.getInstanceAsync(realmConfig, null);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void getDefaultInstanceAsync_nonLooperThreadShouldThrow() {
+        Realm.getDefaultInstanceAsync(new RealmInstanceCallback<Realm>() {
+            @Override
+            public void onSuccess(Realm realm) {
+            }
+        });
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void getDefaultInstanceAsync_nullCallbackShouldThrow() {
+        thrown.expect(IllegalArgumentException.class);
+        Realm.getDefaultInstanceAsync(null);
+    }
+
     @Test
     @RunTestInLooperThread
     public void refresh_triggerNotifications() {

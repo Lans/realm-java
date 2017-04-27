@@ -126,6 +126,9 @@ import rx.Observable;
  */
 public class Realm extends BaseRealm {
 
+    private static final String NULL_CONFIG_MSG = "A non-null RealmConfiguration must be provided";
+
+
     public static final String DEFAULT_REALM_NAME = RealmConfiguration.DEFAULT_REALM_NAME;
 
     private static RealmConfiguration defaultConfiguration;
@@ -212,6 +215,21 @@ public class Realm extends BaseRealm {
     }
 
     /**
+     * Calls {@link #getInstanceAsync(RealmConfiguration, RealmInstanceCallback)} with default configuration.
+     *
+     * @param callback invoked to return the results.
+     * @return a {@link RealmAsyncTask} representing a cancellable task.
+     * @see RealmInstanceCallback for how to handle the results.
+     * @see #setDefaultConfiguration(RealmConfiguration) about default configurations.
+     */
+    public static RealmAsyncTask getDefaultInstanceAsync(RealmInstanceCallback<Realm> callback) {
+        if (defaultConfiguration == null) {
+            throw new IllegalStateException("Call `Realm.init(Context)` before calling this method.");
+        }
+        return RealmCache.createRealmOrGetFromCacheAsync(defaultConfiguration, callback, Realm.class);
+    }
+
+    /**
      * Realm static constructor that returns the Realm instance defined by provided {@link io.realm.RealmConfiguration}
      *
      * @param configuration {@link RealmConfiguration} used to open the Realm
@@ -224,9 +242,29 @@ public class Realm extends BaseRealm {
      */
     public static Realm getInstance(RealmConfiguration configuration) {
         if (configuration == null) {
-            throw new IllegalArgumentException("A non-null RealmConfiguration must be provided");
+            throw new IllegalArgumentException(NULL_CONFIG_MSG);
         }
         return RealmCache.createRealmOrGetFromCache(configuration, Realm.class);
+    }
+
+    /**
+     * The creation of the first Realm instance for per {@link RealmConfiguration} in the process takes time to do
+     * initialization. This method places the initialization work in a background thread and deliver the Realm instance
+     * to the caller thread asynchronously after the initialization is finished.
+     *
+     * @param configuration {@link RealmConfiguration} used to open the Realm.
+     * @param callback invoked to return the results.
+     * @throws IllegalArgumentException if a null {@link RealmConfiguration} is provided.
+     * @throws IllegalStateException if it is called from a non-Looper or {@link IntentService} thread.
+     * @return a {@link RealmAsyncTask} representing a cancellable task.
+     * @see RealmInstanceCallback for more details.
+     */
+    public static RealmAsyncTask getInstanceAsync(RealmConfiguration configuration,
+                                                  RealmInstanceCallback<Realm> callback) {
+        if (configuration == null) {
+            throw new IllegalArgumentException(NULL_CONFIG_MSG);
+        }
+        return RealmCache.createRealmOrGetFromCacheAsync(configuration, callback, Realm.class);
     }
 
     /**

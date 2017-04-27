@@ -25,12 +25,21 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.realm.exceptions.RealmFileException;
+import io.realm.internal.Capabilities;
 import io.realm.internal.ColumnIndices;
 import io.realm.internal.ObjectServerFacade;
+import io.realm.internal.RealmNotifier;
 import io.realm.internal.SharedRealm;
 import io.realm.internal.Table;
+import io.realm.internal.android.AndroidCapabilities;
+import io.realm.internal.android.AndroidRealmNotifier;
+import io.realm.internal.async.RealmAsyncTaskImpl;
 import io.realm.log.RealmLog;
 
 
@@ -75,6 +84,82 @@ final class RealmCache {
         }
     }
 
+    private static class CreateRealmRunnable<T extends BaseRealm> implements Runnable {
+        private RealmConfiguration configuration;
+        private RealmInstanceCallback<T> callback;
+        private Class<T> realmClass;
+        private CountDownLatch fgRealmCreatedLatch = new CountDownLatch(1);
+        private RealmNotifier notifier;
+
+        CreateRealmRunnable(RealmNotifier notifier, RealmConfiguration configuration,
+                            RealmInstanceCallback<T> callback, Class<T> realmClass) {
+            this.configuration = configuration;
+            this.realmClass = realmClass;
+            this.callback = callback;
+            this.notifier = notifier;
+        }
+
+        @Override
+        public void run() {
+            T instance = null;
+            final AtomicBoolean taskCanceled = new AtomicBoolean(false);
+            try {
+                instance = createRealmOrGetFromCache(configuration, realmClass);
+                boolean results = notifier.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        // If the RealmAsyncTask.cancel() is called before, we just return without creating the Realm
+                        // instance on the caller thread.
+                        // Thread.isInterrupted() cannot be used for checking here since CountDownLatch.await() will
+                        // will clear interrupted status.
+                        if (taskCanceled.get()) {
+                            return;
+                        }
+                        T instanceToReturn = null;
+                        try {
+                            instanceToReturn = createRealmOrGetFromCache(configuration, realmClass);
+                        }catch (RuntimeException e) {
+                            callback.onError(e);
+                        } finally {
+                            fgRealmCreatedLatch.countDown();
+                        }
+                        if (instanceToReturn != null) {
+                            callback.onSuccess(instanceToReturn);
+                        }
+                    }
+                });
+                if (!results) {
+                    fgRealmCreatedLatch.countDown();
+                }
+                // There is a small chance that the posted runnable cannot be executed because of the thread terminated
+                // before the runnable gets fetched from the event queue.
+                if (!fgRealmCreatedLatch.await(5, TimeUnit.SECONDS)) {
+                    RealmLog.warn("Timeout for creating Realm instance in foreground thread in `CreateRealmRunnable` ");
+                }
+            } catch (InterruptedException e) {
+                taskCanceled.set(true);
+                RealmLog.warn(e, "`CreateRealmRunnable` has been interrupted.");
+            } catch (final RuntimeException e) {
+                RealmLog.error(e, "`CreateRealmRunnable` failed.");
+                notifier.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onError(e);
+                    }
+                });
+            } finally {
+                if (instance != null) {
+                    instance.close();
+                }
+            }
+        }
+    }
+
+    private static final String ASYNC_NOT_ALLOWED_MSG =
+            "The Realm instance cannot be got asynchronously on current thread.";
+    private static final String ASYNC_CALLBACK_NULL_MSG =
+            "The callback cannot be null.";
+
     // Separated references and counters for typed Realm and dynamic Realm.
     private final EnumMap<RealmCacheType, RefAndCount> refAndCountMap;
 
@@ -104,6 +189,49 @@ final class RealmCache {
         for (RealmCacheType type : RealmCacheType.values()) {
             refAndCountMap.put(type, new RefAndCount());
         }
+    }
+
+    static <T extends BaseRealm> RealmAsyncTask createRealmOrGetFromCacheAsync(
+            RealmConfiguration configuration, RealmInstanceCallback<T> callback, Class<T> realmClass) {
+        RealmCache cache = getCache(configuration.getPath(), true);
+        return cache.doCreateRealmOrGetFromCacheAsync(configuration, callback, realmClass);
+    }
+
+    private synchronized  <T extends BaseRealm> RealmAsyncTask doCreateRealmOrGetFromCacheAsync(
+        RealmConfiguration configuration, RealmInstanceCallback<T> callback, Class<T> realmClass) {
+        Capabilities capabilities = new AndroidCapabilities();
+        capabilities.checkCanDeliverNotification(ASYNC_NOT_ALLOWED_MSG);
+        if (callback == null) {
+            throw new IllegalArgumentException(ASYNC_CALLBACK_NULL_MSG);
+        }
+
+        // Create the first instance in the background if there is no dynamic or type Realm instances or
+        // there is no type Realm instance and this function is trying to create one type Realm instance.
+        if (getTotalGlobalRefCount() == 0 ||
+                (realmClass == Realm.class &&
+                        refAndCountMap.get(RealmCacheType.valueOf(realmClass)).globalCount == 0)) {
+            CreateRealmRunnable<T> createRealmRunnable = new CreateRealmRunnable<T>(
+                    new AndroidRealmNotifier(null, capabilities), configuration, callback, realmClass);
+            Future<?> future = BaseRealm.asyncTaskExecutor.submitTransaction(createRealmRunnable);
+
+            return new RealmAsyncTaskImpl(future, BaseRealm.asyncTaskExecutor);
+        }
+
+        // All the initialization work has been done, just create the instance immediately.
+        T realm = doCreateRealmOrGetFromCache(configuration, realmClass);
+
+        callback.onSuccess(realm);
+
+        return new RealmAsyncTask() {
+            @Override
+            public void cancel() {
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+        };
     }
 
     private static RealmCache getCache(String realmPath, boolean createIfNotExist) {
@@ -435,7 +563,7 @@ final class RealmCache {
      * @param schemaVersion requested version of the schema.
      * @return {@link ColumnIndices} instance for specified schema version. {@code null} if not found.
      */
-    public static ColumnIndices findColumnIndices(ColumnIndices[] array, long schemaVersion) {
+    static ColumnIndices findColumnIndices(ColumnIndices[] array, long schemaVersion) {
         for (int i = array.length - 1; 0 <= i; i--) {
             final ColumnIndices candidate = array[i];
             if (candidate != null && candidate.getSchemaVersion() == schemaVersion) {
