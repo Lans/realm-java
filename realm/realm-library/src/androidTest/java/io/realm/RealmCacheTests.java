@@ -461,7 +461,7 @@ public class RealmCacheTests {
             }
 
             @Override
-            public void onError(RuntimeException exception) {
+            public void onError(Throwable exception) {
                 assertTrue(exception instanceof RealmFileException);
                 looperThread.testComplete();
             }

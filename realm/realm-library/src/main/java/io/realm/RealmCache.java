@@ -124,7 +124,7 @@ final class RealmCache {
                         T instanceToReturn = null;
                         try {
                             instanceToReturn = createRealmOrGetFromCache(configuration, realmClass);
-                        } catch (RuntimeException e) {
+                        } catch (Throwable e) {
                             callback.onError(e);
                         } finally {
                             createdInForegroundLatch.countDown();

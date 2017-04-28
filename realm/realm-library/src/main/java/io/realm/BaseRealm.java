@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import io.realm.exceptions.RealmException;
 import io.realm.exceptions.RealmFileException;
 import io.realm.exceptions.RealmMigrationNeededException;
 import io.realm.internal.CheckedRow;
@@ -817,13 +818,13 @@ abstract class BaseRealm implements Closeable {
         public abstract void onSuccess(T realm);
 
         /**
-         * Deliver the error happens when creating the Realm instance to the caller thread. The default implementation will
-         * throw the exception on the caller thread.
+         * Deliver the error happens when creating the Realm instance to the caller thread. The default implementation
+         * will throw the exception on the caller thread.
          *
          * @param exception happens when creating the Realm instance.
          */
-        public void onError(RuntimeException exception) {
-            throw exception;
+        public void onError(Throwable exception) {
+            throw new RealmException("Exception happens when initializing Realm in the background thread.", exception);
         }
     }
 }
