@@ -57,7 +57,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -3833,7 +3832,7 @@ public class RealmTests {
 
     @Test(expected = IllegalStateException.class)
     public void getInstanceAsync_nonLooperThreadShouldThrow() {
-        Realm.getInstanceAsync(realmConfig, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(realmConfig, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
             }
@@ -3844,7 +3843,7 @@ public class RealmTests {
     @RunTestInLooperThread
     public void getInstanceAsync_nullConfigShouldThrow() {
         thrown.expect(IllegalArgumentException.class);
-        Realm.getInstanceAsync(null, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(null, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
             }

@@ -340,7 +340,7 @@ public class RealmCacheTests {
     public void getInstanceAsync_typedRealm() {
         final RealmConfiguration configuration = looperThread.createConfiguration();
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
-        Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(true);
@@ -357,7 +357,7 @@ public class RealmCacheTests {
     public void getInstanceAsync_dynamicRealm() {
         final RealmConfiguration configuration = looperThread.createConfiguration();
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
-        DynamicRealm.getInstanceAsync(configuration, new RealmInstanceCallback<DynamicRealm>() {
+        DynamicRealm.getInstanceAsync(configuration, new DynamicRealm.Callback() {
             @Override
             public void onSuccess(DynamicRealm realm) {
                 realmCreated.set(true);
@@ -375,7 +375,7 @@ public class RealmCacheTests {
         final RealmConfiguration configuration = looperThread.createConfiguration();
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
         Realm realm = Realm.getInstance(configuration);
-        Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(true);
@@ -409,7 +409,7 @@ public class RealmCacheTests {
         thread.start();
 
         TestHelper.awaitOrFail(globalRealmCreated);
-        Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(true);
@@ -431,7 +431,7 @@ public class RealmCacheTests {
         final DynamicRealm dynamicRealm = DynamicRealm.getInstance(configuration);
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
 
-        Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(false);
@@ -454,7 +454,7 @@ public class RealmCacheTests {
                 looperThread.createConfigurationBuilder()
                 .assetFile("NotExistingFile")
                 .build();
-        Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 fail();
@@ -502,7 +502,7 @@ public class RealmCacheTests {
                 })
                 .build();
 
-        realmAsyncTasks[0] = Realm.getInstanceAsync(configuration, new RealmInstanceCallback<Realm>() {
+        realmAsyncTasks[0] = Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 fail();

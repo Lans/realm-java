@@ -80,10 +80,10 @@ public class DynamicRealm extends BaseRealm {
      * @throws IllegalArgumentException if a null {@link RealmConfiguration} is provided.
      * @throws IllegalStateException if it is called from a non-Looper or {@link android.app.IntentService} thread.
      * @return a {@link RealmAsyncTask} representing a cancellable task.
-     * @see RealmInstanceCallback for more details.
+     * @see Callback for more details.
      */
     public static RealmAsyncTask getInstanceAsync(RealmConfiguration configuration,
-                                                  RealmInstanceCallback<DynamicRealm> callback) {
+                                                  Callback callback) {
         if (configuration == null) {
             throw new IllegalArgumentException("A non-null RealmConfiguration must be provided");
         }
@@ -258,6 +258,12 @@ public class DynamicRealm extends BaseRealm {
      */
     public interface Transaction {
         void execute(DynamicRealm realm);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public static abstract class Callback extends InstanceCallback<DynamicRealm> {
     }
 }
 

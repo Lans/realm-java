@@ -744,4 +744,86 @@ abstract class BaseRealm implements Closeable {
     }
 
     public static final ThreadLocalRealmObjectContext objectContext = new ThreadLocalRealmObjectContext();
+
+    /**
+     * To return the results to get the Realm instance asynchronously by calling
+     * {@link Realm#getInstanceAsync(RealmConfiguration, Realm.Callback)} or
+     * {@link DynamicRealm#getInstanceAsync(RealmConfiguration, DynamicRealm.Callback)}.
+     * <p>
+     * Before creating the first Realm instance in a process, there are some initialization work need to be done such as
+     * creating or validating schemas, run migration if needed,
+     * copy asset file if {@link RealmConfiguration.Builder#assetFile(String)} is supplied and execute the
+     * {@link RealmConfiguration.Builder#initialData(Realm.Transaction)} if necessary. Those work may takes time
+     * and block the caller thread for a while. To avoid {@code getInstance()} call blocking the main thread, the
+     * {@code getInstanceAsync()} can be used instead which will do the initialization work in the background thread and
+     * deliver a Realm instance to the caller thread.
+     * <p>
+     * If a Realm instance of a specific {@link RealmConfiguration} is opened on any thread, it is not needed to
+     * use {@code getInstanceAsync()} call anymore since all initialization work has been done before. {@code getInstance()}
+     * is fast enough for this case.
+     * <p>
+     * Here is an example of using {@code getInstanceAsync()} when the app starts the first activity:
+     * <pre>
+     * public class MainActivity extends Activity {
+     *
+     *   private Realm realm = null;
+     *   private RealmAsyncTask realmAsyncTask;
+     *
+     *   \@Override
+     *   protected void onCreate(Bundle savedInstanceState) {
+     *     super.onCreate(savedInstanceState);
+     *     setContentView(R.layout.layout_main);
+     *     realmAsyncTask = Realm.getDefaultInstanceAsync(new Callback() {
+     *         \@Override
+     *         public void onSuccess(Realm realm) {
+     *             if (isDestroyed()) {
+     *                 // If the activity is destroyed, the Realm instance should be closed immediately to avoid leaks.
+     *                 // Or you can call realmAsyncTask.cancel() in onDestroy() to stop callback delivery.
+     *                 realm.close();
+     *             } else {
+     *                 MainActivity.this.realm = realm;
+     *                 // Remove the spinner and start the real UI.
+     *             }
+     *         }
+     *     });
+     *
+     *     // Show a spinner before Realm instance returned by the callback.
+     *   }
+     *
+     *   \@Override
+     *   protected void onDestroy() {
+     *     super.onDestroy();
+     *     if (realm != null) {
+     *         realm.close();
+     *         realm = null;
+     *     } else {
+     *         // Calling cancel() on the thread where getInstanceAsync was called on to stop the callback delivery.
+     *         // Otherwise you need to check if the activity is destroyed to close in the onSuccess() properly.
+     *         realmAsyncTask.cancel();
+     *     }
+     *   }
+     * }
+     * </pre>
+     *
+     * @param <T> {@link Realm} or {@link DynamicRealm}.
+     */
+    public abstract static class InstanceCallback<T extends BaseRealm> {
+
+        /**
+         * Deliver a Realm instance to the caller thread.
+         *
+         * @param realm the Realm instance for the caller thread.
+         */
+        public abstract void onSuccess(T realm);
+
+        /**
+         * Deliver the error happens when creating the Realm instance to the caller thread. The default implementation will
+         * throw the exception on the caller thread.
+         *
+         * @param exception happens when creating the Realm instance.
+         */
+        public void onError(RuntimeException exception) {
+            throw exception;
+        }
+    }
 }

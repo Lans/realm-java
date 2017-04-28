@@ -85,7 +85,7 @@ final class RealmCache {
 
     private static class CreateRealmRunnable<T extends BaseRealm> implements Runnable {
         private RealmConfiguration configuration;
-        private RealmInstanceCallback<T> callback;
+        private BaseRealm.InstanceCallback<T> callback;
         private Class<T> realmClass;
         private CountDownLatch fgRealmCreatedLatch = new CountDownLatch(1);
         private RealmNotifier notifier;
@@ -93,7 +93,7 @@ final class RealmCache {
         private Future future;
 
         CreateRealmRunnable(RealmNotifier notifier, RealmConfiguration configuration,
-                            RealmInstanceCallback<T> callback, Class<T> realmClass) {
+                            BaseRealm.InstanceCallback<T> callback, Class<T> realmClass) {
             this.configuration = configuration;
             this.realmClass = realmClass;
             this.callback = callback;
@@ -197,13 +197,13 @@ final class RealmCache {
     }
 
     static <T extends BaseRealm> RealmAsyncTask createRealmOrGetFromCacheAsync(
-            RealmConfiguration configuration, RealmInstanceCallback<T> callback, Class<T> realmClass) {
+            RealmConfiguration configuration, BaseRealm.InstanceCallback<T> callback, Class<T> realmClass) {
         RealmCache cache = getCache(configuration.getPath(), true);
         return cache.doCreateRealmOrGetFromCacheAsync(configuration, callback, realmClass);
     }
 
     private synchronized  <T extends BaseRealm> RealmAsyncTask doCreateRealmOrGetFromCacheAsync(
-        RealmConfiguration configuration, RealmInstanceCallback<T> callback, Class<T> realmClass) {
+            RealmConfiguration configuration, BaseRealm.InstanceCallback<T> callback, Class<T> realmClass) {
         Capabilities capabilities = new AndroidCapabilities();
         capabilities.checkCanDeliverNotification(ASYNC_NOT_ALLOWED_MSG);
         if (callback == null) {
