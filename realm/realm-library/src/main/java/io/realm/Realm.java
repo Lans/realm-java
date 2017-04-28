@@ -215,21 +215,6 @@ public class Realm extends BaseRealm {
     }
 
     /**
-     * Calls {@link #getInstanceAsync(RealmConfiguration, RealmInstanceCallback)} with default configuration.
-     *
-     * @param callback invoked to return the results.
-     * @return a {@link RealmAsyncTask} representing a cancellable task.
-     * @see RealmInstanceCallback for how to handle the results.
-     * @see #setDefaultConfiguration(RealmConfiguration) about default configurations.
-     */
-    public static RealmAsyncTask getDefaultInstanceAsync(RealmInstanceCallback<Realm> callback) {
-        if (defaultConfiguration == null) {
-            throw new IllegalStateException("Call `Realm.init(Context)` before calling this method.");
-        }
-        return RealmCache.createRealmOrGetFromCacheAsync(defaultConfiguration, callback, Realm.class);
-    }
-
-    /**
      * Realm static constructor that returns the Realm instance defined by provided {@link io.realm.RealmConfiguration}
      *
      * @param configuration {@link RealmConfiguration} used to open the Realm

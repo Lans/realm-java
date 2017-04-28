@@ -3858,21 +3858,6 @@ public class RealmTests {
         Realm.getInstanceAsync(realmConfig, null);
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void getDefaultInstanceAsync_nonLooperThreadShouldThrow() {
-        Realm.getDefaultInstanceAsync(new RealmInstanceCallback<Realm>() {
-            @Override
-            public void onSuccess(Realm realm) {
-            }
-        });
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void getDefaultInstanceAsync_nullCallbackShouldThrow() {
-        thrown.expect(IllegalStateException.class);
-        Realm.getDefaultInstanceAsync(null);
-    }
-
     @Test
     @RunTestInLooperThread
     public void refresh_triggerNotifications() {
