@@ -210,34 +210,14 @@ final class RealmCache {
             throw new IllegalArgumentException(ASYNC_CALLBACK_NULL_MSG);
         }
 
-        // Create the first instance in the background if there is no dynamic or type Realm instances or
-        // there is no type Realm instance and this function is trying to create one type Realm instance.
-        if (getTotalGlobalRefCount() == 0 ||
-                (realmClass == Realm.class &&
-                        refAndCountMap.get(RealmCacheType.valueOf(realmClass)).globalCount == 0)) {
-            CreateRealmRunnable<T> createRealmRunnable = new CreateRealmRunnable<T>(
-                    new AndroidRealmNotifier(null, capabilities), configuration, callback, realmClass);
-            Future<?> future = BaseRealm.asyncTaskExecutor.submitTransaction(createRealmRunnable);
-            createRealmRunnable.setFuture(future);
+        // Always create a Realm instance in the background thread even when there are instances existing on current
+        // thread. This to ensure that onSuccess will always be called in the following event loop but not current one.
+        CreateRealmRunnable<T> createRealmRunnable = new CreateRealmRunnable<T>(
+                new AndroidRealmNotifier(null, capabilities), configuration, callback, realmClass);
+        Future<?> future = BaseRealm.asyncTaskExecutor.submitTransaction(createRealmRunnable);
+        createRealmRunnable.setFuture(future);
 
-            return new RealmAsyncTaskImpl(future, BaseRealm.asyncTaskExecutor);
-        }
-
-        // All the initialization work has been done, just create the instance immediately.
-        T realm = doCreateRealmOrGetFromCache(configuration, realmClass);
-
-        callback.onSuccess(realm);
-
-        return new RealmAsyncTask() {
-            @Override
-            public void cancel() {
-            }
-
-            @Override
-            public boolean isCancelled() {
-                return false;
-            }
-        };
+        return new RealmAsyncTaskImpl(future, BaseRealm.asyncTaskExecutor);
     }
 
     private static RealmCache getCache(String realmPath, boolean createIfNotExist) {

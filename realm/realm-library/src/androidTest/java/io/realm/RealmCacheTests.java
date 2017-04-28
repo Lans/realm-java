@@ -41,6 +41,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -371,33 +372,33 @@ public class RealmCacheTests {
 
     @Test
     @RunTestInLooperThread
-    public void getInstanceAsync_callbackImmediatelyWhenLocalCacheExist() {
+    public void getInstanceAsync_callbackDeliveredInFollowingEventLoopWhenLocalCacheExist() {
         final RealmConfiguration configuration = looperThread.createConfiguration();
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
-        Realm realm = Realm.getInstance(configuration);
+        final Realm localRealm = Realm.getInstance(configuration);
         Realm.getInstanceAsync(configuration, new Realm.Callback() {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(true);
-                assertEquals(1, Realm.getGlobalInstanceCount(configuration));
                 assertEquals(2, Realm.getLocalInstanceCount(configuration));
+                assertSame(realm, localRealm);
                 realm.close();
+                localRealm.close();
+                looperThread.testComplete();
             }
         });
-        assertTrue(realmCreated.get());
-        realm.close();
-        looperThread.testComplete();
+        assertFalse(realmCreated.get());
     }
 
     @Test
     @RunTestInLooperThread
-    public void getInstanceAsync_callbackImmediatelyWhenGlobalCacheExist() throws InterruptedException {
+    public void getInstanceAsync_callbackDeliveredInFollowingEventLoopWhenGlobalCacheExist() throws InterruptedException {
         final RealmConfiguration configuration = looperThread.createConfiguration();
         final AtomicBoolean realmCreated = new AtomicBoolean(false);
         final CountDownLatch globalRealmCreated = new CountDownLatch(1);
         final CountDownLatch getAsyncFinishedLatch = new CountDownLatch(1);
 
-        Thread thread = new Thread(new Runnable() {
+        final Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 Realm realm = Realm.getInstance(configuration);
@@ -413,15 +414,18 @@ public class RealmCacheTests {
             @Override
             public void onSuccess(Realm realm) {
                 realmCreated.set(true);
-                assertEquals(2, Realm.getGlobalInstanceCount(configuration));
                 assertEquals(1, Realm.getLocalInstanceCount(configuration));
                 realm.close();
+                getAsyncFinishedLatch.countDown();
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    fail();
+                }
+                looperThread.testComplete();
             }
         });
-        assertTrue(realmCreated.get());
-        getAsyncFinishedLatch.countDown();
-        thread.join();
-        looperThread.testComplete();
+        assertFalse(realmCreated.get());
     }
 
     @Test
