@@ -161,7 +161,7 @@ final class RealmCache {
     }
 
     private static final String ASYNC_NOT_ALLOWED_MSG =
-            "The Realm instance cannot be got asynchronously on current thread.";
+            "Realm instances cannot be loaded asynchronously on a non-looper thread.";
     private static final String ASYNC_CALLBACK_NULL_MSG =
             "The callback cannot be null.";
 
