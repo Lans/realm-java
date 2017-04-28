@@ -87,7 +87,7 @@ final class RealmCache {
         private RealmConfiguration configuration;
         private BaseRealm.InstanceCallback<T> callback;
         private Class<T> realmClass;
-        private CountDownLatch fgRealmCreatedLatch = new CountDownLatch(1);
+        private CountDownLatch createdInForegroundLatch = new CountDownLatch(1);
         private RealmNotifier notifier;
         // The Future this runnable belongs to.
         private Future future;
@@ -124,10 +124,10 @@ final class RealmCache {
                         T instanceToReturn = null;
                         try {
                             instanceToReturn = createRealmOrGetFromCache(configuration, realmClass);
-                        }catch (RuntimeException e) {
+                        } catch (RuntimeException e) {
                             callback.onError(e);
                         } finally {
-                            fgRealmCreatedLatch.countDown();
+                            createdInForegroundLatch.countDown();
                         }
                         if (instanceToReturn != null) {
                             callback.onSuccess(instanceToReturn);
@@ -135,11 +135,11 @@ final class RealmCache {
                     }
                 });
                 if (!results) {
-                    fgRealmCreatedLatch.countDown();
+                    createdInForegroundLatch.countDown();
                 }
                 // There is a small chance that the posted runnable cannot be executed because of the thread terminated
                 // before the runnable gets fetched from the event queue.
-                if (!fgRealmCreatedLatch.await(5, TimeUnit.SECONDS)) {
+                if (!createdInForegroundLatch.await(5, TimeUnit.SECONDS)) {
                     RealmLog.warn("Timeout for creating Realm instance in foreground thread in `CreateRealmRunnable` ");
                 }
             } catch (InterruptedException e) {
